@@ -1,4 +1,11 @@
-[toc]
+- [6、继承与面向对象设计](#6继承与面向对象设计)
+  - [35、考虑 virtual 函数以为的其他选择](#35考虑-virtual-函数以为的其他选择)
+    - [藉由 Non-Virtual Interface 手法实现 Template Method](#藉由-non-virtual-interface-手法实现-template-method)
+    - [藉由 Function Pointers 实现 Strategy 模式](#藉由-function-pointers-实现-strategy-模式)
+    - [藉由 tr1::function 完成 Strategy 模式](#藉由-tr1function-完成-strategy-模式)
+  - [36、绝不重新定义继承而来的 non-virtual 函数](#36绝不重新定义继承而来的-non-virtual-函数)
+  - [37、绝不重新定义继承而来的缺省参数值](#37绝不重新定义继承而来的缺省参数值)
+
 # 6、继承与面向对象设计
 ## 35、考虑 virtual 函数以为的其他选择
 ### 藉由 Non-Virtual Interface 手法实现 Template Method
