@@ -197,3 +197,46 @@ private:
     std::list<T> rep;
 };
 ```
+## 39、明智而审慎地使用 private 继承
+private 继承意味 implemented-in-terms-of 的关系，而不是 is-a 的关系，它与 38 条复合的意义相同。我们尽可能使用复合，必要时才使用 private 继承。
+1. 需要重新定义 virtual 函数时；
+2. 需要访问 base class 的 protected 成员时；
+3. base class 大小为0时，继承可以有 empty base optimization。
+```cpp
+class Timer {
+public:
+    explicit Timer(int tickFrequency);
+    virtual void onTick() const;
+};
+
+class Widget: private Timer {
+private:
+    virtual void onTick() const override;
+};
+
+class Empty {};
+class HoldsAnInt: private Empty {
+private:
+    int x;
+};
+```
+
+也可以使用复合的方式代替 private 继承，该做法有两个优点：
+1. 防止 derived class 重新定义 virtual 函数
+2. 将 derived class 编译依存降至最低
+```cpp
+class Timer {
+public:
+    explicit Timer(int tickFrequency);
+    virtual void onTick() const;
+};
+
+class Widget {
+private:
+    class WidgetTimer : public Timer {
+    public:
+        virtual void onTick() const override;
+    };
+    WidgetTimer* pTimer;    // 可以不用包含 WidgetTimer 和 Timer 的头文件
+};
+```
