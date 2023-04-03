@@ -12,7 +12,7 @@
 ```cpp
 class GameCharactor {
 public:
-    int healthValue() const { 
+    int healthValue() const {
         // ...
         int retVal = doHealthValue();
         // ...
@@ -170,3 +170,30 @@ class Circle : public Shape {
     pc->draw(); // 从基类继承默认参数
 ```
 如果保证 base 和 derived 的缺省值一致，一旦缺省值需要改变，则要同步修改。优化方式是使用 non-virtual interface 方式实现。
+## 38、通过复合塑模出 has-a 或”根据某物实现出“
+### has-a 关系
+```cpp
+class Address {};
+class PhoneNumber {};
+class Person {
+public:
+private:
+    std::string name;
+    Address address;
+    PhoneNumber phone;
+    PhoneNumber faxNumber;
+};
+```
+### 根据某物实现出
+```cpp
+template <typename T>
+class Set {
+public:
+    bool member(const T item) const;
+    void insert(const T item);
+    void remove(const T item);
+    std::size_t size() const;
+private:
+    std::list<T> rep;
+};
+```
