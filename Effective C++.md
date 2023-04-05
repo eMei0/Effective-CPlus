@@ -240,3 +240,74 @@ private:
     WidgetTimer* pTimer;    // 可以不用包含 WidgetTimer 和 Timer 的头文件
 };
 ```
+
+## 40、明智而审慎地使用多重继承
+### 多继承比单一继承复杂，可能导致歧义
+```cpp
+class BorrowableItem {
+public:
+    void checkOut();
+};
+
+class ElectronicGadget {
+private:
+    bool checkedOut() const;
+};
+
+class MP3Player : public ElectronicGadget, public BorrowableItem {};
+
+MP3Player mp3;
+mp3.checkOut(); // error: 'checkOut' is ambiguous
+```
+### 钻石继承 & virtual inheritance 问题
+1. 钻石继承：C++ 缺省做法是让 base class 经由每一条路径复制一次，如果你期望只有一份 base class，那么就要使用 virtual inheritance。
+```cpp
+class File {);
+class InputFile : public File {);   // InputFile is derived from File
+class OutputFile : public File {);  // OutputFile is derived from File
+class IOFile : public InputFile, public OutputFile {);
+```
+2. virtual inheritance 的代价
+为了避免继承来的成员变量重复，编译器必须提供若干幕后戏法，后果如下：
+    - 使用 virtual inheritance 的类的对象的大小会变大；
+    - 访问 virtual inheritance 的成员变量的速度会变慢；
+    - derived class 初始化时，必须认知 virtual bases；
+    - 当新的 derived class 加入继承体系，必须承担其 virtual bases 的初始化责任。
+**非必要不使用 virtual bases；如果必须使用 virtual base classes, 尽可能避免在其中放置数据。**
+```cpp
+class InputFile : virtual public File {);
+class OutputFile : virtual public File {);
+```
+### 多继承的用武之地
+```cpp
+class IPerson {
+public:
+    virtual ~IPerson();
+    virtual std::string name() const = 0;
+    virtual std::string birthDate() const = 0;
+};
+
+class DataBaseID {};
+
+class PersonInfo {
+public:
+    explicit PersonInfo(const DataBaseID& pid);
+    virtual ~PersonInfo();
+    virtual const char* theName() const;
+    virtual const char* theBirthDate() const;
+    virtual const char* theDelimOpen() const;
+    virtual const char* theDelimClose() const;
+};
+
+class CPerson: public IPerson, private PersonInfo {
+public:
+    explicit CPerson(const DataBaseID& pid): PersonInfo(pid) {};
+    virtual std::string name() const { return PersonInfo::theName(); };
+    virtual std::string birthDate() const { return PersonInfo::theBirthDate(); };
+
+private:
+    const char* theDelimOpen() const { return ""; };
+    const char* theDelimClose() const { return ""; };
+};
+```
+多继承的设计方案一定可以某些单继承也可以的方案，但多继承有时的确是最简洁、最易维护、最合理的方案。仔细思考，谨慎使用，别害怕使用。
