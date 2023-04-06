@@ -311,3 +311,37 @@ private:
 };
 ```
 多继承的设计方案一定可以某些单继承也可以的方案，但多继承有时的确是最简洁、最易维护、最合理的方案。仔细思考，谨慎使用，别害怕使用。
+
+# 7、模版与泛型编程
+
+## 41、了解隐式接口和编译期多态
+
+- classes 和 template 都支持接口和多态。
+- 对 classes 而言接口是显式的，以函数签名为中心。多态则是通过 virtual 函数发生在运行期。
+- 对 tamplate 而言，接口是隐式的，奠基于有效表达式。多态则是通过 template 具现化和函数重载解析（function overloading resolution）发生于编译期。
+
+对本节理解不到位，后续补充。
+
+## 42、了解 typename 的双重意义
+- 对于嵌套从属名称，C++ 编译器缺省假设不是类型，除非你告诉它是（增加 typename 前缀）。
+```cpp
+template <typename C>
+void print2nd(const C& container)
+{
+    if (container.size() >= 2)
+    {
+        typename C::const_iterator iter = container.begin();    // 必须要加 typename
+    }
+}
+```
+- typename 不可以出现在 base classes list 及 member initiaization list 内的嵌套从属类型前。
+```cpp
+template <typename T>
+class Derived : public Base<T>::Nested {    // 'typename' cannot appear here
+public:
+    Derived(int x) : Base<T>::Nested(x) {   // 'typename' cannot appear here
+        typename Base<T>::Nested temp;      // OK
+    }
+};
+```
+- typename 相关规定在不同的编译器上有不同的实践。这意味着 typename 和“嵌套从属名称”之间的互动，也许会在移植性方面带来麻烦。
