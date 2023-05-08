@@ -5,9 +5,21 @@
     - [藉由 tr1::function 完成 Strategy 模式](#藉由-tr1function-完成-strategy-模式)
   - [36、绝不重新定义继承而来的 non-virtual 函数](#36绝不重新定义继承而来的-non-virtual-函数)
   - [37、绝不重新定义继承而来的缺省参数值](#37绝不重新定义继承而来的缺省参数值)
+  - [38、通过复合塑模出 has-a 或”根据某物实现出“](#38通过复合塑模出-has-a-或根据某物实现出)
+    - [has-a 关系](#has-a-关系)
+    - [根据某物实现出](#根据某物实现出)
+  - [39、明智而审慎地使用 private 继承](#39明智而审慎地使用-private-继承)
+  - [40、明智而审慎地使用多重继承](#40明智而审慎地使用多重继承)
+    - [多继承比单一继承复杂，可能导致歧义](#多继承比单一继承复杂可能导致歧义)
+    - [钻石继承 \& virtual inheritance 问题](#钻石继承--virtual-inheritance-问题)
+    - [多继承的用武之地](#多继承的用武之地)
+- [7、模版与泛型编程](#7模版与泛型编程)
+  - [41、了解隐式接口和编译期多态](#41了解隐式接口和编译期多态)
+  - [42、了解 typename 的双重意义](#42了解-typename-的双重意义)
+    - [43、学习处理模版化基类内的名称](#43学习处理模版化基类内的名称)
 
 # 6、继承与面向对象设计
-## 35、考虑 virtual 函数以为的其他选择
+ ## 35、考虑 virtual 函数以为的其他选择
 ### 藉由 Non-Virtual Interface 手法实现 Template Method
 ```cpp
 class GameCharactor {
@@ -345,3 +357,91 @@ public:
 };
 ```
 - typename 相关规定在不同的编译器上有不同的实践。这意味着 typename 和“嵌套从属名称”之间的互动，也许会在移植性方面带来麻烦。
+### 43、学习处理模版化基类内的名称
+- 对于模板化基类，编译器知道其可能被特化，而特化版本可能不提供一般性接口，因此编译器拒绝在模板化基类内查找名称。
+```cpp
+class CompanyA{
+public:
+    void sendCleartext(const std::string& msg);
+    void sendEncrypted(const std::string& msg);
+};
+
+class MsgInfo{};
+
+template<typename Company>
+class MsgSender{
+public:
+    void sendClear(const MsgInfo& info) {
+        std::string msg;
+        // generate msg from info
+        Company c;
+        c.sendCleartext(msg);
+    }
+};
+
+class CompanyZ{
+public:
+    void sendEncrypted(const std::string& msg);
+};
+
+// CompanyZ 的特化版本
+template<>
+class MsgSender<CompanyZ>{
+public:
+    void sendSecret(const MsgInfo& info) {}
+};
+
+template<typename Company>
+class LoggingMsgSender: public MsgSender<Company>{
+public:
+    void sendClearMsg(const MsgInfo& info) {
+        // log start
+        sendClear(info);    // compile errors
+        // log end
+    }
+};
+```
+想让编译器查找模板化基类的名称，可以使用以下三个方法：
+1. 使用this->前缀
+```cpp
+template<typename Company>
+class LoggingMsgSender: public MsgSender<Company>{
+public:
+    void sendClearMsg(const MsgInfo& info) {
+        // log start
+        this->sendClear(info);    // OK
+        // log end
+    }
+};
+```
+2. 使用using声明
+```cpp
+template<typename Company>
+class LoggingMsgSender: public MsgSender<Company>{
+public:
+    using MsgSender<Company>::sendClear;
+    void sendClearMsg(const MsgInfo& info) {
+        // log start
+        sendClear(info);    // OK
+        // log end
+    }
+};
+```
+3. 明白编译器查找依据，但该方法不推荐，因为它会关闭“virtual 绑定行为”。
+```cpp
+template<typename Company>
+class LoggingMsgSender: public MsgSender<Company>{
+public:
+    void sendClearMsg(const MsgInfo& info) {
+        // log start
+        MsgSender<Company>::sendClear(info);    // OK
+        // log end
+    }
+};
+```
+以上方法都是想编译器承诺“base class template 的任何特化版本都将支持其一般版本所提供的而接口”。如果你的承诺不实现，编译器将会报错，如下：
+```cpp
+LoggingMsgSender<CompanyZ> zMsgSender;
+MsgInfo info;
+zMsgSender.sendClearMsg(info);  // compile error
+```
