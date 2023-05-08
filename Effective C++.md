@@ -16,7 +16,8 @@
 - [7、模版与泛型编程](#7模版与泛型编程)
   - [41、了解隐式接口和编译期多态](#41了解隐式接口和编译期多态)
   - [42、了解 typename 的双重意义](#42了解-typename-的双重意义)
-    - [43、学习处理模版化基类内的名称](#43学习处理模版化基类内的名称)
+  - [43、学习处理模版化基类内的名称](#43学习处理模版化基类内的名称)
+  - [44、将与参数无关的代码抽离 templates](#44将与参数无关的代码抽离-templates)
 
 # 6、继承与面向对象设计
  ## 35、考虑 virtual 函数以为的其他选择
@@ -357,7 +358,7 @@ public:
 };
 ```
 - typename 相关规定在不同的编译器上有不同的实践。这意味着 typename 和“嵌套从属名称”之间的互动，也许会在移植性方面带来麻烦。
-### 43、学习处理模版化基类内的名称
+## 43、学习处理模版化基类内的名称
 - 对于模板化基类，编译器知道其可能被特化，而特化版本可能不提供一般性接口，因此编译器拒绝在模板化基类内查找名称。
 ```cpp
 class CompanyA{
@@ -445,3 +446,43 @@ LoggingMsgSender<CompanyZ> zMsgSender;
 MsgInfo info;
 zMsgSender.sendClearMsg(info);  // compile error
 ```
+## 44、将与参数无关的代码抽离 templates
+- Templates 生成多个 classes  和多个函数，所以任何 template 代码都不应该与某个造成代码膨胀的 template 参数产生相依关系。
+- 因非类型模板参数而造成的代码膨胀，可以以函数参数或 class 成员变量替换 template 参数来避免。
+```cpp
+template<typename T, std::size_t n>
+class SquareMatrix {
+public:
+    void invert();
+};
+squareMatrix<double, 5> sm1;
+sm1.invert();
+squareMatrix<double, 10> sm2;
+sm2.invert();
+```
+上述代码会具现出两个一样的 invert 函数。我们可以为其建立一个带参数的函数：
+```cpp
+template<typename T>
+class SquareMatrixBase {
+protected:
+    SquareMatrixBase(std::size_t n, T* pMem): size(n), pData(pMem) {}
+    void setDataPtr(T* ptr) { pData = ptr; }
+    void invert();
+private:
+    std::size_t size;
+    T* pData;
+};
+
+template<typename T, std::size_t n>
+class SquareMatrix: private SquareMatrixBase<T> {
+public:
+    SquareMatrix(): SquareMatrixBase<T>(n, data) {}
+private:
+    using SquareMatrixBase<T>::invert;
+public:
+    void invert() { this->invert(); }
+private:
+    T data[n * n];
+};
+```
+- 因类型模板参数而造成的代码膨胀，可以让带有完全相同二进制表述的具现类型共享实现码来降低。
