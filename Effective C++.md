@@ -18,6 +18,8 @@
   - [42、了解 typename 的双重意义](#42了解-typename-的双重意义)
   - [43、学习处理模版化基类内的名称](#43学习处理模版化基类内的名称)
   - [44、将与参数无关的代码抽离 templates](#44将与参数无关的代码抽离-templates)
+  - [45、运用成员函数模板接受所有兼容类型](#45运用成员函数模板接受所有兼容类型)
+  - [46、需要类型转换时请为模板定义非成员函数](#46需要类型转换时请为模板定义非成员函数)
 
 # 6、继承与面向对象设计
  ## 35、考虑 virtual 函数以为的其他选择
@@ -486,3 +488,40 @@ private:
 };
 ```
 - 因类型模板参数而造成的代码膨胀，可以让带有完全相同二进制表述的具现类型共享实现码来降低。
+## 45、运用成员函数模板接受所有兼容类型
+```cpp
+class Top{};
+class Middle: public Top{};
+class Bottom: public Middle{};
+template<typename T>
+class SmartPtr{
+public:
+    explicit SmartPtr(T* realPtr);
+    template<typename U>
+    SmartPtr(const SmartPtr<U>& other)
+        : ptr(other.get()) {};  // 只有在 U* 能隐式转换为 T* 时，才能通过编译
+    T* get() const { return ptr; };
+private:
+    T* ptr;
+};
+SmartPtr<Top> pt1 = SmartPtr<Middle>(new Middle);
+SmartPtr<Top> pt2 = SmartPtr<Bottom>(new Bottom);
+SmartPtr<const Top> cpt1 = pt1;
+```
+如果你声明 member templates 用于“泛化 copy 构造”或“泛化 assignment 操作”，你还需声明正常的 copy 构造函数和 assignment 操作符。
+## 46、需要类型转换时请为模板定义非成员函数
+1. 在 template 实参推导过程中从不将隐士类型转换函数纳入考虑。
+2. 外部 template 函数只能在 class 内部定义，否则无法连接。
+```cpp
+template<typename T> class Rational;
+template<typename T>
+const Rational<T> doMultiply(const Rational<T>& lhs, const Rational<T>& rhs) {};
+
+template<typename T>
+class Rational{
+public:
+    Rational(const T& numerator = 0, const T& denominator = 1);
+    const T numerator() const;
+    const T denominator() const;
+    friend const Rational operator*(const Rational& lhs, const Rational& rhs) { return doMultiply(lhs, rhs); };
+};
