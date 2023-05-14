@@ -525,3 +525,63 @@ public:
     const T denominator() const;
     friend const Rational operator*(const Rational& lhs, const Rational& rhs) { return doMultiply(lhs, rhs); };
 };
+## 47、请使用 traits classes 表现类型信息
+```cpp
+struct input_iterator_tag {};
+struct output_iterator_tag {};
+struct forward_iterator_tag: public input_iterator_tag {};
+struct bidirectional_iterator_tag: public forward_iterator_tag {};
+struct random_access_iterator_tag: public bidirectional_iterator_tag {};
+
+template<typename T>
+class deque {
+public:
+    class iterator {
+    public:
+        typedef random_access_iterator_tag iterator_category;
+        // ...
+    };
+    // ...
+};
+
+template<typename IterT>
+struct iterator_traits {
+    typedef typename IterT::iterator_category iterator_category;    // 嵌套从属子类型前要加 typename
+    // ...
+};
+
+// 以下是 iterator_traits 针对指针迭代器的偏特化版本
+template<typename IterT>
+struct iterator_traits<IterT*> {
+    typedef random_access_iterator_tag iterator_category;
+    // ...
+};
+
+// 使用重载,在编译期对类型执行测试
+template<typename IterT, typename DistT>
+void doAdvance(IterT& iter, DistT d, random_access_iterator_tag) {
+    iter += d;
+}
+
+template<typename IterT, typename DistT>
+void doAdvance(IterT& iter, DistT d, bidirectional_iterator_tag) {
+    if (d >= 0) {
+        while (d--) ++iter;
+    } else {
+        while (d++) --iter;
+    }
+}
+
+template<typename IterT, typename DistT>
+void doAdvance(IterT& iter, DistT d, input_iterator_tag) {
+    if (d < 0) {
+        throw std::out_of_range("Negative distance");
+    }
+    while (d--) ++iter;
+}
+
+template<typename IterT, typename DistT>
+void Advance(IterT& iter, DistT d) {
+    doAdvance(iter, d, iterator_traits<IterT>::iterator_category());
+}
+```
