@@ -20,6 +20,7 @@
   - [44、将与参数无关的代码抽离 templates](#44将与参数无关的代码抽离-templates)
   - [45、运用成员函数模板接受所有兼容类型](#45运用成员函数模板接受所有兼容类型)
   - [46、需要类型转换时请为模板定义非成员函数](#46需要类型转换时请为模板定义非成员函数)
+  - [48、认识 template 元编程](#48认识-template-元编程)
 
 # 6、继承与面向对象设计
  ## 35、考虑 virtual 函数以为的其他选择
@@ -583,5 +584,25 @@ void doAdvance(IterT& iter, DistT d, input_iterator_tag) {
 template<typename IterT, typename DistT>
 void Advance(IterT& iter, DistT d) {
     doAdvance(iter, d, iterator_traits<IterT>::iterator_category());
+}
+```
+## 48、认识 template 元编程
+1. template metaprogramming 可将工作由运行期移往编译期，因此可以实现早期错误侦测和更高的执行效率。
+2. TMP 可被用来生成“基于政策选择组合”（based on combinations of policy choices）的客户定制代码，也可以避免生成对某些特殊类型并不合适的代码。
+```cpp
+template<unsigned n>
+struct Factorial {
+    enum { value = n * Factorial<n - 1>::value };
+};
+
+template<>
+struct Factorial<0> {
+    enum { value = 1 };
+};
+
+int main () {
+    std::cout << Factorial<5>::value << std::endl;
+    std::cout << Factorial<10>::value << std::endl;
+    return 0;
 }
 ```
