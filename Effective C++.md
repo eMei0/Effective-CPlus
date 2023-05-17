@@ -20,7 +20,11 @@
   - [44、将与参数无关的代码抽离 templates](#44将与参数无关的代码抽离-templates)
   - [45、运用成员函数模板接受所有兼容类型](#45运用成员函数模板接受所有兼容类型)
   - [46、需要类型转换时请为模板定义非成员函数](#46需要类型转换时请为模板定义非成员函数)
+  - [47、请使用 traits classes 表现类型信息](#47请使用-traits-classes-表现类型信息)
   - [48、认识 template 元编程](#48认识-template-元编程)
+- [8、定制 new 和 delete](#8定制-new-和-delete)
+  - [49、了解 new-handler 的行为](#49了解-new-handler-的行为)
+  - [50、了解 new 和 delete 的合理替换时机](#50了解-new-和-delete-的合理替换时机)
 
 # 6、继承与面向对象设计
  ## 35、考虑 virtual 函数以为的其他选择
@@ -513,19 +517,20 @@ SmartPtr<const Top> cpt1 = pt1;
 ## 46、需要类型转换时请为模板定义非成员函数
 1. 在 template 实参推导过程中从不将隐士类型转换函数纳入考虑。
 2. 外部 template 函数只能在 class 内部定义，否则无法连接。
-```cpp
-template<typename T> class Rational;
-template<typename T>
-const Rational<T> doMultiply(const Rational<T>& lhs, const Rational<T>& rhs) {};
+    ```cpp
+    template<typename T> class Rational;
+    template<typename T>
+    const Rational<T> doMultiply(const Rational<T>& lhs, const Rational<T>& rhs) {};
 
-template<typename T>
-class Rational{
-public:
-    Rational(const T& numerator = 0, const T& denominator = 1);
-    const T numerator() const;
-    const T denominator() const;
-    friend const Rational operator*(const Rational& lhs, const Rational& rhs) { return doMultiply(lhs, rhs); };
-};
+    template<typename T>
+    class Rational{
+    public:
+        Rational(const T& numerator = 0, const T& denominator = 1);
+        const T numerator() const;
+        const T denominator() const;
+        friend const Rational operator*(const Rational& lhs, const Rational& rhs) { return doMultiply(lhs, rhs); };
+    };
+    ```
 ## 47、请使用 traits classes 表现类型信息
 ```cpp
 struct input_iterator_tag {};
@@ -589,20 +594,81 @@ void Advance(IterT& iter, DistT d) {
 ## 48、认识 template 元编程
 1. template metaprogramming 可将工作由运行期移往编译期，因此可以实现早期错误侦测和更高的执行效率。
 2. TMP 可被用来生成“基于政策选择组合”（based on combinations of policy choices）的客户定制代码，也可以避免生成对某些特殊类型并不合适的代码。
-```cpp
-template<unsigned n>
-struct Factorial {
-    enum { value = n * Factorial<n - 1>::value };
-};
+    ```cpp
+    template<unsigned n>
+    struct Factorial {
+        enum { value = n * Factorial<n - 1>::value };
+    };
 
-template<>
-struct Factorial<0> {
-    enum { value = 1 };
-};
+    template<>
+    struct Factorial<0> {
+        enum { value = 1 };
+    };
 
-int main () {
-    std::cout << Factorial<5>::value << std::endl;
-    std::cout << Factorial<10>::value << std::endl;
-    return 0;
-}
-```
+    int main () {
+        std::cout << Factorial<5>::value << std::endl;
+        std::cout << Factorial<10>::value << std::endl;
+        return 0;
+    }
+    ```
+# 8、定制 new 和 delete
+## 49、了解 new-handler 的行为
+1. set_new_handler() 允许客户指定一个函数，当 operator new 无法满足内存需求时，该函数会被调用。
+    
+    一个良好的new-handler函数应该做到以下几点：
+    - 让更多内存可被使用。
+    - 安装另一个new-handler。
+    - 卸除new-handler。
+    - 抛出 std::bad_alloc。
+    - 不返回。
+    ```cpp
+    void outOfMem() {
+        std::cerr << "Unable to satisfy request for memory\n";
+        std::abort();
+    }
+
+    template<typename T>
+    class NewHandlerSupport {
+    public:
+        static std::new_handler set_new_handler(std::new_handler p) throw();
+        static void* operator new(std::size_t size) throw(std::bad_alloc);
+    private:
+        static std::new_handler currentHandler;
+    };
+
+    temmplate<typename T>
+    std::new_handler NewHandlerSupport<T>::set_new_handler(std::new_handler p) throw() {
+        std::new_handler oldHandler = currentHandler;
+        currentHandler = p;
+        return oldHandler;
+    }
+
+    template<typename T>
+    void* NewHandlerSupport<T>::operator new(std::size_t size)  thorw(std::bad_alloc) {
+        NewHandlerHolder h(std::set_new_handler(currentHandler));
+        return ::operator new(size);
+    }
+
+    template<typename T>
+    std::new_handler NewHandlerSupport<T>::currentHandler = 0;
+
+    class Widget: public NewHandlerSupport<Widget> {
+        // ...
+    };
+
+    Widget::set_new_handler(outOfMem);
+    Widget* pw1 = new Widget;
+    ```
+2. Nothrow new 是一个颇为局限的工具，因为它只使用于内存分配，后续的构造函数调用还是可能抛出异常。
+    ```cpp
+    class Widget {...};
+    Widget* pw1 = new (std::nothrow) Widget;
+    ```
+## 50、了解 new 和 delete 的合理替换时机
+1. 为了检测运用错误：写入点在分配区块起点前或结束点后。
+2. 为了收集动态分配内存之使用统计信息。
+3. 为了增加分配和归还的速度：如 Boost 提供的 Pool 程序库。
+4. 为了降低缺省内存管理器的空间额外开销。
+5. 为了弥补缺省分配器中的非最佳齐位：x86 体系结构  8 字节对齐速度最快。
+6. 为了将相关对象成簇集中。
+7. 为了获得非传统的行为：如分配时清零。
